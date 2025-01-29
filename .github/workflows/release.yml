@@ -1,0 +1,47 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers the workflow on version tags like v1.0, v2.1, etc.
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Set Variables
+        id: vars
+        run: |
+          REPO_NAME=$(basename $GITHUB_REPOSITORY)
+          BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/} | tr '/' '-')
+          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Create ZIP Archive
+        run: |
+          zip -r "${REPO_NAME}-${BRANCH_NAME}.zip" . -x ".git/*" ".github/*"
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: "${{ env.REPO_NAME }}-${{ env.BRANCH_NAME }}.zip"
+          asset_name: "${{ env.REPO_NAME }}-${{ env.BRANCH_NAME }}.zip"
+          asset_content_type: application/zip
